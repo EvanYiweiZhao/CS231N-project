@@ -103,3 +103,9 @@ def merge(images, size):
 def ims(name, img):
     print "saving img " + name
     cv2.imwrite(name, img*255)
+
+def edge_detection(img):
+    img_edge = cv2.adaptiveThreshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY),\
+                                     255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=11, C=2)
+    return img_edge
+
