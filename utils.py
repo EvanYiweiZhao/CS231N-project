@@ -23,7 +23,7 @@ def bn(x):
     batchnorm_count += 1
     return batch_object(x)
 
-def conv2d(input_, output_dim,
+'''def conv2d(input_, output_dim,
            k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02,
            name="conv2d"):
     with tf.variable_scope(name):
@@ -48,7 +48,7 @@ def deconv2d(input_, output_shape,
         if with_w:
             return deconv, w, biases
         else:
-            return deconv
+            return deconv'''
 
 
 def lrelu(x, leak=0.2, name="lrelu"):
