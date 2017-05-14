@@ -9,10 +9,12 @@ from random import randint
 from utils import *
 from Unet_util import *
 from uNet import *
-
+import time
+import datetime
 
 class Color():
     def __init__(self, imgsize=256, batchsize=4):
+        self.time  = time.time()
         self.batch_size = batchsize
         self.batch_size_sqrt = int(math.sqrt(self.batch_size))
         self.image_size = imgsize
@@ -161,44 +163,47 @@ class Color():
 
     def train(self):
         self.loadmodel()
+        with tf.device("/gpu:0"):
+            
+            data = glob(os.path.join("img", "*.jpg"))
+            print data[0]
+            base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
+            base_normalized = base/255.0
 
-        data = glob(os.path.join("img", "*.jpg"))
-        print data[0]
-        base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
-        base_normalized = base/255.0
+            base_edge = np.array([edge_detection(ba) for ba in base]) / 255.0
+            base_edge = np.expand_dims(base_edge, 3)
 
-        base_edge = np.array([edge_detection(ba) for ba in base]) / 255.0
-        base_edge = np.expand_dims(base_edge, 3)
+            base_colors = np.array([self.imageblur(ba) for ba in base]) / 255.0
 
-        base_colors = np.array([self.imageblur(ba) for ba in base]) / 255.0
+            ims("results/base.png",merge_color(base_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("results/base_line.jpg",merge(base_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
-        ims("results/base.png",merge_color(base_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-        ims("results/base_line.jpg",merge(base_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-        ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            datalen = len(data)
 
-        datalen = len(data)
+            for e in xrange(20000):
+                for i in range(datalen / self.batch_size):
+                    batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+                    batch = np.array([get_image(batch_file) for batch_file in batch_files])
+                    batch_normalized = batch/255.0
 
-        for e in xrange(20000):
-            for i in range(datalen / self.batch_size):
-                batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
-                batch = np.array([get_image(batch_file) for batch_file in batch_files])
-                batch_normalized = batch/255.0
+                    batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
+                    batch_edge = np.expand_dims(batch_edge, 3)
 
-                batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
-                batch_edge = np.expand_dims(batch_edge, 3)
+                    batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
 
-                batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
+                    g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
 
-                g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
+                    print "%d: [%d / %d] g_loss %f" % (e, i, (datalen/self.batch_size), g_loss)
 
-                print "%d: [%d / %d] g_loss %f" % (e, i, (datalen/self.batch_size), g_loss)
+                    if i % 100 == 0:
+                        recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: base_normalized, self.line_images: base_edge, self.color_images: base_colors})
+                        ims("results/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
-                if i % 100 == 0:
-                    recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: base_normalized, self.line_images: base_edge, self.color_images: base_colors})
-                    ims("results/"+str(e*100000 + i)+".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
-
-                if i % 500 == 0:
-                    self.save("./checkpoint", e*100000 + i)
+                    if i % 500 == 0:
+                        self.save("./checkpoint", e)
+                print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
+                print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
 
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session()
