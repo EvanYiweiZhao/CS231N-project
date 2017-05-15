@@ -163,8 +163,9 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        with tf.device("/gpu:0"):
-
+        #with tf.device("/gpu:0"):
+	if 1==1:
+            
             data = glob(os.path.join("img", "*.jpg"))
             print data[0]
             base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
@@ -183,23 +184,22 @@ class Color():
 
             for e in xrange(20000):
                 for i in range(datalen / self.batch_size):
-                    if i % 100 != 0:
-                        batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
-                        batch = np.array([get_image(batch_file) for batch_file in batch_files])
-                        batch_normalized = batch/255.0
+                    batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+                    batch = np.array([get_image(batch_file) for batch_file in batch_files])
+                    batch_normalized = batch/255.0
 
-                        batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
-                        batch_edge = np.expand_dims(batch_edge, 3)
+                    batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
+                    batch_edge = np.expand_dims(batch_edge, 3)
 
-                        batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
+                    batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
 
-                        g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
+                    g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
 
-                        print "%d: [%d / %d] g_loss %f" % (e, i, (datalen/self.batch_size), g_loss)
+                    print "%d: [%d / %d] g_loss %f" % (e, i, (datalen/self.batch_size), g_loss)
 
-                    else:
+                    if i % 100 == 0:
                         recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: base_normalized, self.line_images: base_edge, self.color_images: base_colors})
-                        ims("secondResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                        ims("results/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
                     if i % 500 == 0:
                         self.save("./checkpoint", e)
