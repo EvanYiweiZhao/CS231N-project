@@ -207,7 +207,7 @@ class Color():
                 print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
 
     def loadmodel(self, load_discrim=True):
-        self.sess = tf.Session()
+        self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
         self.sess.run(tf.initialize_all_variables())
 
         if load_discrim:
