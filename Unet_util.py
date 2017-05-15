@@ -2,7 +2,7 @@ import tensorflow as tf
 import math
 
 
-def batch_norm(x, n_out, phase_train = tf.constant(True), scope='bn'):
+def batch_norm_u(x, n_out, phase_train = tf.constant(True), scope='bn'):
     """
     Batch normalization on convolutional maps.
     Args:
@@ -41,7 +41,7 @@ def conv2d(input, name, order, conv_kernel_size, conv_stride, pool_kernel_size, 
                                  shape=[conv_kernel_size, conv_kernel_size, input.get_shape()[-1], filterNum])
         bconv1 = tf.get_variable("bconv" + str(order), shape=[filterNum])
         conv1 = tf.nn.conv2d(input, Wconv1, strides=[1, conv_stride, conv_stride, 1], padding='SAME') + bconv1
-        conv1 = batch_norm(conv1, conv1.get_shape()[3])
+        conv1 = batch_norm_u(conv1, conv1.get_shape()[3])
         act1 = tf.nn.relu(conv1)
 
         Wconv2 = tf.get_variable("Wconv" + str(order + 1),
