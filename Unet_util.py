@@ -48,6 +48,7 @@ def conv2d(input, name, order, conv_kernel_size, conv_stride, pool_kernel_size, 
                                  shape=[conv_kernel_size, conv_kernel_size, filterNum, filterNum])
         bconv2 = tf.get_variable("bconv" + str(order + 1), shape=[filterNum])
         conv2 = tf.nn.conv2d(act1, Wconv2, strides=[1, conv_stride, conv_stride, 1], padding='SAME') + bconv2
+        conv2 = batch_norm_u(conv2, conv2.get_shape()[3])
         act2 = tf.nn.relu(conv2)
 
         if whether_pool:
@@ -67,7 +68,7 @@ def deconv2d(input, concat_input, name, order, conv_kernel_size, conv_stride, de
         bdeconv1 = tf.get_variable("bdeconv" + str(order), shape=[filterNum])
         #print(output)
         deconv1 = tf.nn.conv2d_transpose(input, Wdeconv1, output_shape = output, strides=[1, deconv_stride, deconv_stride, 1]) + bdeconv1
-
+        deconv1 = batch_norm_u(deconv1, deconv1.get_shape()[3])
         if whether_conv:
             print("concatenate", deconv1.get_shape(), concat_input.get_shape())
             concat_output = tf.concat([deconv1, concat_input], axis = 3)
