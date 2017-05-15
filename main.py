@@ -5,6 +5,7 @@ from glob import glob
 import sys
 import math
 from random import randint
+import random
 
 from utils import *
 from Unet_util import *
@@ -184,7 +185,8 @@ class Color():
             for e in xrange(20000):
                 for i in range(datalen / self.batch_size):
                     if i % 100 != 0:
-                        batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+                        #batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+                        batch_files = [ data[j] for j in random.sample(xrange(datalen), 4) ]
                         batch = np.array([get_image(batch_file) for batch_file in batch_files])
                         batch_normalized = batch/255.0
 
