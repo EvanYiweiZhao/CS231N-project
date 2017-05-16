@@ -5,6 +5,7 @@ from glob import glob
 import sys
 import math
 from random import randint
+import random
 
 from utils import *
 from Unet_util import *
@@ -189,8 +190,18 @@ class Color():
 				batch = np.array([get_image(batch_file) for batch_file in batch_files])
 				batch_normalized = batch/255.0
 
+<<<<<<< HEAD
 				batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
 				batch_edge = np.expand_dims(batch_edge, 3)
+=======
+            for e in xrange(20000):
+                for i in range(datalen / self.batch_size):
+                    if i % 100 != 0:
+                        #batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+                        batch_files = [ data[j] for j in random.sample(xrange(datalen), 4) ]
+                        batch = np.array([get_image(batch_file) for batch_file in batch_files])
+                        batch_normalized = batch/255.0
+>>>>>>> bb33a6a4f32051b6c29fdd5e8abf2e3cf98cd767
 
 				batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
 
