@@ -189,6 +189,11 @@ class Color():
             ims("results/base_line.jpg",merge(base_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
+
+            ims("thirdResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("thirdResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("thirdResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
             datalen = len(data)
 
             for e in xrange(20000):
