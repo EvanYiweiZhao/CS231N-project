@@ -236,7 +236,7 @@ class Color():
             val_edge = np.expand_dims(val_edge, 3)
 
             #val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
-            val_colors = np.array([cv2.cvSet(ba, cv2.CV_RGB(255, 255, 255)) for ba in val]) / 255.0
+            val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
 
             ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
