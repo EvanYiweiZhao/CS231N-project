@@ -166,7 +166,8 @@ class Color():
         self.loadmodel()
         with tf.device("/gpu:0"):
 
-            data = glob(os.path.join("img", "*.jpg"))
+            #data = glob(os.path.join("img", "*.jpg"))
+            data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
             val_data = glob(os.path.join("val","*.jpg"))
             print data[0]
             base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
@@ -190,9 +191,9 @@ class Color():
             ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
 
-            ims("thirdResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("thirdResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("thirdResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
             datalen = len(data)
 
@@ -214,9 +215,12 @@ class Color():
 
                     if i % 500 == 0:
                         self.save("./checkpoint", e)
+
+                    if i % 200 == 0:
+                        recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
+                        ims("fourthResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
                 #start validate
-                recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
-                ims("thirdResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
                 print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
                 print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
