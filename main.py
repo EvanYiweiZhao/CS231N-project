@@ -225,6 +225,33 @@ class Color():
                 print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
                 print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
 
+    def test(self):
+        self.loadmodel()
+        with tf.device("/gpu:0"):
+            val_data = glob(os.path.join("val","*.jpg"))
+            val = np.array([get_image(sample_file) for sample_file in val_data[0:self.batch_size]])
+            val_normalized = val/255.0
+
+            val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
+            val_edge = np.expand_dims(val_edge, 3)
+
+            #val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
+            val_colors = np.array([cv2.cvSet(ba, cv2.CV_RGB(255, 255, 255)) for ba in val]) / 255.0
+
+            ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
+
+            recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
+            ims("fourthResults/NoHint.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
+        #start validate
+
+        #print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
+        #print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
+
+
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
         self.sess.run(tf.initialize_all_variables())
@@ -300,5 +327,8 @@ if __name__ == '__main__':
         elif cmd == "sample":
             c = Color(512,1)
             c.sample()
+        elif cmd == "test":
+            c = Color()
+            c.test()
         else:
             print "Usage: python main.py [train, sample]"
