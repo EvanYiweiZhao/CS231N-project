@@ -74,8 +74,8 @@ class Color():
         self.g_loss = tf.reduce_mean(-disc_fake_logits) \
                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
-        # g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
-        # d_loss_sum = tf.summary.scalar("c_loss", self.d_loss)
+        g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
+        d_loss_sum = tf.summary.scalar("c_loss", self.d_loss)
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
@@ -232,19 +232,35 @@ class Color():
             feed_dict = {self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors}
             return feed_dict
 
-        with tf.device("/gpu:0"):
 
+        with tf.device("/gpu:0"):
+            log_dir = './log/'
+            summary_writer = tf.summary.FileWriter(log_dir, self.sess.graph)
             for t in xrange(20000):
                 d_iters = 5
                 if t % 500 == 0 or t < 25:
                     d_iters = 100
-
-                for _ in range(d_iters):
+                for j in range(d_iters):
                     feed_dict = next_feed_dict()
-                    d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)
-                
+                    if t % 100 == 99 and j == 0:
+                        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                        run_metadata = tf.RunMetadata()
+                        d_loss, _, merged = sess.run([self.d_loss, self.d_optim, self.merged_all], feed_dict=feed_dict,
+                                             options=run_options, run_metadata=run_metadata)
+                        summary_writer.add_summary(merged, t)
+                        summary_writer.add_run_metadata(run_metadata, 'critic_metadata {}'.format(t), t)
+                    else:
+                        d_loss, _ = sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
+
                 feed_dict = next_feed_dict()
-                g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
+                if t % 100 == 99:
+                    g_loss, _, merged = sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
+                         options=run_options, run_metadata=run_metadata)
+                    summary_writer.add_summary(merged, t)
+                    summary_writer.add_run_metadata(
+                        run_metadata, 'generator_metadata {}'.format(t), t)
+                else:
+                    g_loss, _ = sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
 
                 print "%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss)
 
@@ -296,6 +312,7 @@ class Color():
             self.saver = tf.train.Saver()
         else:
             self.saver = tf.train.Saver(self.g_vars)
+        self.merged_all = tf.summary.merge_all()
 
         if self.load("./checkpoint"):
             print "Loaded"
