@@ -66,23 +66,24 @@ class Color():
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
-
         self.d_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
         self.g_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
 
 
     def discriminator(self, image, y=None, reuse=False):
         # image is 256 x 256 x (input_c_dim + output_c_dim)
-        if reuse:
-            tf.get_variable_scope().reuse_variables()
-        else:
-            assert tf.get_variable_scope().reuse == False
+        with tf.variable_scope("d"):
+            if reuse:
+                tf.get_variable_scope().reuse_variables()
+            else:
+                assert tf.get_variable_scope().reuse == False
 
-        h0 = lrelu(conv2d2(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
-        h1 = lrelu(self.d_bn1(conv2d2(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
-        h2 = lrelu(self.d_bn2(conv2d2(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
-        h3 = lrelu(self.d_bn3(conv2d2(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
-        h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+            h0 = lrelu(conv2d2(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
+            h1 = lrelu(self.d_bn1(conv2d2(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
+            h2 = lrelu(self.d_bn2(conv2d2(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
+            h3 = lrelu(self.d_bn3(conv2d2(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
+            h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+
         return tf.nn.sigmoid(h4), h4
 
     def generator(self, img_in):

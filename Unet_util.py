@@ -70,9 +70,9 @@ def deconv2d(input, concat_input, name, order, conv_kernel_size, conv_stride, de
         deconv1 = tf.nn.conv2d_transpose(input, Wdeconv1, output_shape = output, strides=[1, deconv_stride, deconv_stride, 1]) + bdeconv1
         deconv1 = batch_norm_u(deconv1, deconv1.get_shape()[3])
         if whether_conv:
-            print("concatenate", deconv1.get_shape(), concat_input.get_shape())
+            # print("concatenate", deconv1.get_shape(), concat_input.get_shape())
             concat_output = tf.concat([deconv1, concat_input], axis = 3)
-            print("fuck", concat_output.get_shape())
+            # print("fuck", concat_output.get_shape())
 
             tmp_output, Wconv1, bconv1, Wconv2, bconv2 = conv2d(concat_output, 'layer' + str(order), 10 + order,
                                                             conv_kernel_size, conv_stride, 0, 0, False, filterNum)
