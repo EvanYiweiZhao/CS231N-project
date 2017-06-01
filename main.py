@@ -50,9 +50,8 @@ class Color():
         #         grads[i] = (tf.clip_by_norm(g,5),v)
         # self.g_optim = optimizer.apply_gradients(grads)
         # self.g_optim = optimizer.minimize(self.g_loss)
-
-        self.real_AB = tf.concat(3, [combined_preimage, self.real_images])
-        self.fake_AB = tf.concat(3, [combined_preimage, self.generated_images])
+        self.real_AB = tf.concat([combined_preimage, self.real_images], 3)
+        self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)
 
         self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
         self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
