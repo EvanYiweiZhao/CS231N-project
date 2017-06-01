@@ -186,63 +186,75 @@ class Color():
 
     def train(self):
         self.loadmodel()
+        data = glob(os.path.join("img", "*.jpg"))
+        # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
+        print data[0]
+        val_data = glob(os.path.join("val","*.jpg"))
+        
+        base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
+        base_normalized = base/255.0
+
+        base_edge = np.array([edge_detection(ba) for ba in base]) / 255.0
+        base_edge = np.expand_dims(base_edge, 3)
+
+        base_colors = np.array([self.imageblur(ba) for ba in base]) / 255.0
+
+        val = np.array([get_image(sample_file) for sample_file in val_data[0:self.batch_size]])
+        val_normalized = val/255.0
+
+        val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
+        val_edge = np.expand_dims(val_edge, 3)
+
+        val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
+
+        ims("results/base.png",merge_color(base_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("results/base_line.jpg",merge(base_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
+
+        ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+
+        datalen = len(data)
+
+        def next_feed_dict():
+            #batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
+            batch_files = [data[j] for j in random.sample(xrange(datalen), 4) ]
+            batch = np.array([get_image(batch_file) for batch_file in batch_files])
+            batch_normalized = batch/255.0
+
+            batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
+            batch_edge = np.expand_dims(batch_edge, 3)
+
+            batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
+            
+            feed_dict = {self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors}
+            return feed_dict
+
         with tf.device("/gpu:0"):
 
-            data = glob(os.path.join("img", "*.jpg"))
-            # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
-            val_data = glob(os.path.join("val","*.jpg"))
-            print data[0]
-            base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
-            base_normalized = base/255.0
+            for t in xrange(20000):
+                d_iters = 5
+                if t % 500 == 0 or t < 25:
+                    d_iters = 100
 
-            base_edge = np.array([edge_detection(ba) for ba in base]) / 255.0
-            base_edge = np.expand_dims(base_edge, 3)
+                for _ in range(d_iters):
+                    feed_dict = next_feed_dict()
+                    d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)
+                
+                feed_dict = next_feed_dict()
+                g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
 
-            base_colors = np.array([self.imageblur(ba) for ba in base]) / 255.0
-
-            val = np.array([get_image(sample_file) for sample_file in val_data[0:self.batch_size]])
-            val_normalized = val/255.0
-
-            val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
-            val_edge = np.expand_dims(val_edge, 3)
-
-            val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
-
-            ims("results/base.png",merge_color(base_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("results/base_line.jpg",merge(base_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                print "%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss)
 
 
-            ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                if t % 500 == 499:
+                    self.save("./checkpoint", t)
 
-            datalen = len(data)
-
-            for e in xrange(20000):
-                for i in range(datalen / self.batch_size):
-                    #batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
-                    batch_files = [ data[j] for j in random.sample(xrange(datalen), 4) ]
-                    batch = np.array([get_image(batch_file) for batch_file in batch_files])
-                    batch_normalized = batch/255.0
-
-                    batch_edge = np.array([edge_detection(ba) for ba in batch]) / 255.0
-                    batch_edge = np.expand_dims(batch_edge, 3)
-
-                    batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
-
-                    d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
-                    g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
-
-                    print "%d: [%d / %d] d_loss %f, g_loss %f" % (e, i, (datalen/self.batch_size), d_loss, g_loss)
-
-
-                    if i % 500 == 0:
-                        self.save("./checkpoint", e)
-
-                    if i % 200 == 0:
-                        recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
-                        ims("fourthResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                if t % 200 == 0:
+                    recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
+                    ims("fourthResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
                 #start validate
 
@@ -278,7 +290,7 @@ class Color():
 
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
 
         if load_discrim:
             self.saver = tf.train.Saver()
