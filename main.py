@@ -56,11 +56,11 @@ class Color():
         self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
         self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
 
-        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_true_logits, tf.ones_like(disc_true_logits)))
-        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.zeros_like(disc_fake_logits)))
+        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
+        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
         self.d_loss = self.d_loss_real + self.d_loss_fake
 
-        self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.ones_like(disc_fake_logits))) \
+        self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
                         + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         t_vars = tf.trainable_variables()
@@ -78,10 +78,10 @@ class Color():
         else:
             assert tf.get_variable_scope().reuse == False
 
-        h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
-        h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
-        h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
-        h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
+        h0 = lrelu(conv2d2(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
+        h1 = lrelu(self.d_bn1(conv2d2(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
+        h2 = lrelu(self.d_bn2(conv2d2(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
+        h3 = lrelu(self.d_bn3(conv2d2(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
         h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
         return tf.nn.sigmoid(h4), h4
 
@@ -92,7 +92,7 @@ class Color():
         cacheList = [None for _ in range(6)]
         for i in range(1, 6):
             filterNum = int(math.pow(2, 5 + i))
-            cacheList[i] = conv2d(inputX, "layer" + str(i), i, Config.conv_kernel_size, Config.conv_stride,
+            cacheList[i] = conv2d(inputX, "g_layer" + str(i), i, Config.conv_kernel_size, Config.conv_stride,
                                   Config.pool_kernel_size, Config.pool_stride, True, filterNum)
             inputX = cacheList[i][0]
 
@@ -102,12 +102,12 @@ class Color():
         for i in range(1, 5):
             #deconv_shape =tf.pack([cacheList[5 - i][0].get_shape()[_] for _ in range(4)])
             #print(deconv_shape)
-            deCacheList[i] = deconv2d(inputX, cacheList[5 - i][0], "delayer" + str(i), i, Config.conv_kernel_size,
+            deCacheList[i] = deconv2d(inputX, cacheList[5 - i][0], "g_delayer" + str(i), i, Config.conv_kernel_size,
                                       Config.conv_stride, Config.deconv_kernel_size, Config.deconv_stride,
                                       tf.shape(cacheList[5 - i][0]), int(math.pow(2, 10 - i)), True)
             inputX = deCacheList[i][0]
 
-        deCacheList[5] = deconv2d(inputX, None, "delayer" + str(5), 5, Config.conv_kernel_size, Config.conv_stride,
+        deCacheList[5] = deconv2d(inputX, None, "g_delayer" + str(5), 5, Config.conv_kernel_size, Config.conv_stride,
                                   Config.deconv_kernel_size, Config.deconv_stride, tf.shape(self.real_images),
                                   self.real_images.get_shape()[3], False)#Config.color_num+1, False)
 

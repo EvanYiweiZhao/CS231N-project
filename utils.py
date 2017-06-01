@@ -23,9 +23,9 @@ def bn(x):
     batchnorm_count += 1
     return batch_object(x)
 
-'''def conv2d(input_, output_dim,
+def conv2d2(input_, output_dim,
            k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02,
-           name="conv2d"):
+           name="conv2d2"):
     with tf.variable_scope(name):
         w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
                             initializer=tf.truncated_normal_initializer(stddev=stddev))
@@ -35,7 +35,7 @@ def bn(x):
         conv = tf.reshape(tf.nn.bias_add(conv, biases), conv.get_shape())
 
         return conv
-
+"""
 def deconv2d(input_, output_shape,
              k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02,
              name="deconv2d", with_w=False):
@@ -48,8 +48,8 @@ def deconv2d(input_, output_shape,
         if with_w:
             return deconv, w, biases
         else:
-            return deconv'''
-
+            return deconv
+"""
 
 def lrelu(x, leak=0.2, name="lrelu"):
   return tf.maximum(x, leak*x)
