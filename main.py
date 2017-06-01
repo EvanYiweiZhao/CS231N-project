@@ -42,50 +42,49 @@ class Color():
         # combined_preimage = self.line_images
 
         self.generated_images = self.generator(combined_preimage)
-        self.g_loss = tf.nn.l2_loss(self.real_images - self.generated_images)
-        optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5)
+        # self.g_loss = tf.nn.l2_loss(self.real_images - self.generated_images)
+        # optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5)
         # grads = optimizer.compute_gradients(self.g_loss)
         # for i,(g,v) in enumerate(grads):
         #     if g is not None:
         #         grads[i] = (tf.clip_by_norm(g,5),v)
         # self.g_optim = optimizer.apply_gradients(grads)
-        self.g_optim = optimizer.minimize(self.g_loss)
+        # self.g_optim = optimizer.minimize(self.g_loss)
+
+        self.real_AB = tf.concat(3, [combined_preimage, self.real_images])
+        self.fake_AB = tf.concat(3, [combined_preimage, self.generated_images])
+
+        self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
+        self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
+
+        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_true_logits, tf.ones_like(disc_true_logits)))
+        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.zeros_like(disc_fake_logits)))
+        self.d_loss = self.d_loss_real + self.d_loss_fake
+
+        self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.ones_like(disc_fake_logits))) \
+                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+
+        t_vars = tf.trainable_variables()
+        self.d_vars = [var for var in t_vars if 'd_' in var.name]
+        self.g_vars = [var for var in t_vars if 'g_' in var.name]
+
+        self.d_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
+        self.g_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
 
 
-        # self.real_AB = tf.concat(3, [combined_preimage, self.real_images])
-        # self.fake_AB = tf.concat(3, [combined_preimage, self.generated_images])
+    def discriminator(self, image, y=None, reuse=False):
+        # image is 256 x 256 x (input_c_dim + output_c_dim)
+        if reuse:
+            tf.get_variable_scope().reuse_variables()
+        else:
+            assert tf.get_variable_scope().reuse == False
 
-        # self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
-        # self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
-
-        # self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_true_logits, tf.ones_like(disc_true_logits)))
-        # self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.zeros_like(disc_fake_logits)))
-        # self.d_loss = self.d_loss_real + self.d_loss_fake
-
-        # self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.ones_like(disc_fake_logits))) \
-        #                 + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
-
-        # t_vars = tf.trainable_variables()
-        # self.d_vars = [var for var in t_vars if 'd_' in var.name]
-        # self.g_vars = [var for var in t_vars if 'g_' in var.name]
-
-        # self.d_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
-        # self.g_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
-
-
-    # def discriminator(self, image, y=None, reuse=False):
-    #     # image is 256 x 256 x (input_c_dim + output_c_dim)
-    #     if reuse:
-    #         tf.get_variable_scope().reuse_variables()
-    #     else:
-    #         assert tf.get_variable_scope().reuse == False
-
-    #     h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
-    #     h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
-    #     h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
-    #     h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
-    #     h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
-    #     return tf.nn.sigmoid(h4), h4
+        h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
+        h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
+        h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
+        h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
+        h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+        return tf.nn.sigmoid(h4), h4
 
     def generator(self, img_in):
         X = img_in
@@ -209,9 +208,11 @@ class Color():
 
                     batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
 
+                    d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
                     g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
 
-                    print "%d: [%d / %d] g_loss %f" % (e, i, (datalen/self.batch_size), g_loss)
+                    print "%d: [%d / %d] d_loss %f, g_loss %f" % (e, i, (datalen/self.batch_size), d_loss, g_loss)
+
 
                     if i % 500 == 0:
                         self.save("./checkpoint", e)
