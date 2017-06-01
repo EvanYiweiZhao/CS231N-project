@@ -13,8 +13,12 @@ from uNet import *
 import time
 import datetime
 
+clamp_lower = -0.01
+clamp_upper = 0.01
+lam = 10
+
 class Color():
-    def __init__(self, imgsize=256, batchsize=4):
+    def __init__(self, imgsize=256, batchsize=4, mode='gp'):
         self.time  = time.time()
         self.batch_size = batchsize
         self.batch_size_sqrt = int(math.sqrt(self.batch_size))
@@ -40,39 +44,58 @@ class Color():
 
         combined_preimage = tf.concat([self.line_images, self.color_images], 3)
         # combined_preimage = self.line_images
+        with tf.variable_scope('generator'):
+            self.generated_images = self.generator(combined_preimage)
 
-        self.generated_images = self.generator(combined_preimage)
-        # self.g_loss = tf.nn.l2_loss(self.real_images - self.generated_images)
-        # optimizer = tf.train.AdamOptimizer(0.0002, beta1=0.5)
-        # grads = optimizer.compute_gradients(self.g_loss)
-        # for i,(g,v) in enumerate(grads):
-        #     if g is not None:
-        #         grads[i] = (tf.clip_by_norm(g,5),v)
-        # self.g_optim = optimizer.apply_gradients(grads)
-        # self.g_optim = optimizer.minimize(self.g_loss)
         self.real_AB = tf.concat([combined_preimage, self.real_images], 3)
         self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)
 
         self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
         self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
 
-        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
-        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
-        self.d_loss = self.d_loss_real + self.d_loss_fake
+        self.d_loss = tf.reduce_mean(disc_fake_logits - disc_true_logits) # WGAN
+        # self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
+        # self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
+        # self.d_loss = self.d_loss_real + self.d_loss_fake
 
-        self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
-                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+        if mode is 'gp':
+            alpha_dist = tf.contrib.distributions.Uniform(0.0, 1.0)
+            alpha = alpha_dist.sample((self.batch_size, 1, 1, 1))
+            interpolated = self.real_images + alpha*(self.generated_images-self.real_images)
+            interpolated_AB = tf.concat([combined_preimage, interpolated], 3)
+            _, inte_logit = self.discriminator(interpolated_AB, reuse=True)
+            gradients = tf.gradients(inte_logit, [interpolated_AB,])[0]
+            grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
+            gradient_penalty = tf.reduce_mean((grad_l2-1)**2)
+            gp_loss_sum = tf.summary.scalar("gp_loss", gradient_penalty)
+            grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
+            self.d_loss += lam*gradient_penalty
 
-        t_vars = tf.trainable_variables()
-        self.d_vars = [var for var in t_vars if 'd_' in var.name]
-        self.g_vars = [var for var in t_vars if 'g_' in var.name]
+        self.g_loss = tf.reduce_mean(-disc_fake_logits) \
+                       + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+
+        # g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
+        # d_loss_sum = tf.summary.scalar("c_loss", self.d_loss)
+
+        self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
+        self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
+
         self.d_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
         self.g_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
+
+        if mode is 'regular':
+            clipped_var_d = [tf.assign(var, tf.clip_by_value(var, clamp_lower, clamp_upper)) for var in self.d_vars]
+            # merge the clip operations on critic variables
+            with tf.control_dependencies([self.d_optim]):
+                self.d_optim = tf.tuple(clipped_var_d)
+ 
+        if not mode in ['gp', 'regular']:
+            raise(NotImplementedError('Only two modes'))
 
 
     def discriminator(self, image, y=None, reuse=False):
         # image is 256 x 256 x (input_c_dim + output_c_dim)
-        with tf.variable_scope("d"):
+        with tf.variable_scope("discriminator"):
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             else:
@@ -165,8 +188,8 @@ class Color():
         self.loadmodel()
         with tf.device("/gpu:0"):
 
-            #data = glob(os.path.join("img", "*.jpg"))
-            data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
+            data = glob(os.path.join("img", "*.jpg"))
+            # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
             val_data = glob(os.path.join("val","*.jpg"))
             print data[0]
             base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
