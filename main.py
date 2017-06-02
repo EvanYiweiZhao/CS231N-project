@@ -186,8 +186,8 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        data = glob(os.path.join("img", "*.jpg"))
-        # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
+        #data = glob(os.path.join("img", "*.jpg"))
+        data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
         print data[0]
         val_data = glob(os.path.join("val","*.jpg"))
         
@@ -245,22 +245,22 @@ class Color():
                     if t % 100 == 99 and j == 0:
                         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                         run_metadata = tf.RunMetadata()
-                        d_loss, _, merged = sess.run([self.d_loss, self.d_optim, self.merged_all], feed_dict=feed_dict,
+                        d_loss, _, merged = self.sess.run([self.d_loss, self.d_optim, self.merged_all], feed_dict=feed_dict,
                                              options=run_options, run_metadata=run_metadata)
                         summary_writer.add_summary(merged, t)
                         summary_writer.add_run_metadata(run_metadata, 'critic_metadata {}'.format(t), t)
                     else:
-                        d_loss, _ = sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
+                        d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
 
                 feed_dict = next_feed_dict()
                 if t % 100 == 99:
-                    g_loss, _, merged = sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
+                    g_loss, _, merged = self.sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
                          options=run_options, run_metadata=run_metadata)
                     summary_writer.add_summary(merged, t)
                     summary_writer.add_run_metadata(
                         run_metadata, 'generator_metadata {}'.format(t), t)
                 else:
-                    g_loss, _ = sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
+                    g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
 
                 print "%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss)
 
