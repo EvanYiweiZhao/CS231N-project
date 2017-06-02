@@ -196,7 +196,7 @@ class Color():
         if sampling:
             cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
         else:
-            for i in xrange(30):
+            for i in range(30):
                 randx = randint(0,205)
                 randy = randint(0,205)
                 cimg[randx:randx+50, randy:randy+50] = 255
@@ -204,9 +204,9 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        #data = glob(os.path.join("img", "*.jpg"))
-        data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
-        print data[0]
+        data = glob(os.path.join("img", "*.jpg"))
+        # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
+        print(data[0])
         val_data = glob(os.path.join("val","*.jpg"))
         
         base = np.array([get_image(sample_file) for sample_file in data[0:self.batch_size]])
@@ -280,7 +280,7 @@ class Color():
                 else:
                     g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
 
-                print "%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss)
+                print ("%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss))
 
 
                 if t % 500 == 499:
@@ -333,9 +333,9 @@ class Color():
         self.merged_all = tf.summary.merge_all()
 
         if self.load("./checkpoint"):
-            print "Loaded"
+            print ("Loaded")
         else:
-            print "Load failed"
+            print ("Load failed")
 
     def sample(self):
         self.loadmodel(False)
@@ -389,7 +389,7 @@ class Color():
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "Usage: python main.py [train, sample]"
+        print ("Usage: python main.py [train, sample]")
     else:
         cmd = sys.argv[1]
         if cmd == "train":
@@ -402,4 +402,4 @@ if __name__ == '__main__':
             c = Color()
             c.test()
         else:
-            print "Usage: python main.py [train, sample]"
+            print ("Usage: python main.py [train, sample]")
