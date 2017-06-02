@@ -275,7 +275,7 @@ class Color():
                 #start validate
 
                 print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
-                print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
+                print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(t+1)))))
 
     def test(self):
         self.loadmodel()
