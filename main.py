@@ -127,7 +127,7 @@ class Color():
     #     return logit
 
     def discriminator(self, image, y=None, reuse=False):
-        with tf.variable_scope("discriminator"):
+        with tf.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
             else:
