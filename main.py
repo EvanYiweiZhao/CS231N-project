@@ -18,8 +18,8 @@ import datetime
 clamp_lower = -0.01
 clamp_upper = 0.01
 lam = 10
-learning_rate_ger = 5e-5
-learning_rate_dis = 5e-5
+learning_rate_ger = 2e-4
+learning_rate_dis = 2e-4
 is_adam = True
 
 class Color():
@@ -104,28 +104,40 @@ class Color():
         if not mode in ['gp', 'regular']:
             raise(NotImplementedError('Only two modes'))
 
-    def discriminator(self, img, reuse=False):
-        with tf.variable_scope('discriminator') as scope:
+    # def discriminator(self, img, reuse=False):
+    #     with tf.variable_scope('discriminator') as scope:
+    #         if reuse:
+    #             scope.reuse_variables()
+    #         else:
+    #             assert tf.get_variable_scope().reuse == False
+    #         img = ly.conv2d(img, num_outputs=self.df_dim, kernel_size=5,
+    #                         stride=2, activation_fn=lrelu)
+    #         img = ly.conv2d(img, num_outputs=self.df_dim * 2, kernel_size=5,
+    #                         stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
+    #                         normalizer_params={'is_training':True})
+    #         img = ly.conv2d(img, num_outputs=self.df_dim * 4, kernel_size=5,
+    #                         stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm, 
+    #                         normalizer_params={'is_training':True})
+
+    #         img = ly.conv2d(img, num_outputs=self.df_dim * 8, kernel_size=5,
+    #                         stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
+    #                         normalizer_params={'is_training':True})
+    #         logit = ly.fully_connected(tf.reshape(
+    #             img, [self.batch_size, -1]), 1, activation_fn=None)
+    #     return logit
+
+    def discriminator(self, image, y=None, reuse=False):
+        with tf.variable_scope("discriminator"):
             if reuse:
                 scope.reuse_variables()
             else:
                 assert tf.get_variable_scope().reuse == False
-            img = ly.conv2d(img, num_outputs=self.df_dim, kernel_size=5,
-                            stride=2, activation_fn=lrelu)
-            img = ly.conv2d(img, num_outputs=self.df_dim * 2, kernel_size=5,
-                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
-                            normalizer_params={'is_training':True})
-            img = ly.conv2d(img, num_outputs=self.df_dim * 4, kernel_size=5,
-                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm, 
-                            normalizer_params={'is_training':True})
-
-            img = ly.conv2d(img, num_outputs=self.df_dim * 8, kernel_size=5,
-                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
-                            normalizer_params={'is_training':True})
-            logit = ly.fully_connected(tf.reshape(
-                img, [self.batch_size, -1]), 1, activation_fn=None)
-        return logit
-
+            h0 = lrelu(conv2d2(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
+            h1 = lrelu(self.d_bn1(conv2d2(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
+            h2 = lrelu(self.d_bn2(conv2d2(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
+            h3 = lrelu(self.d_bn3(conv2d2(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
+            h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+        return h4
 
     def generator(self, img_in):
         X = img_in
@@ -196,7 +208,7 @@ class Color():
         if sampling:
             cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
         else:
-            for i in range(30):
+            for i in xrange(30):
                 randx = randint(0,205)
                 randy = randint(0,205)
                 cimg[randx:randx+50, randy:randy+50] = 255
