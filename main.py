@@ -204,8 +204,8 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        data = glob(os.path.join("img", "*.jpg"))
-        # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs", "*.jpg"))
+        #data = glob(os.path.join("img", "*.jpg"))
+        data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
         print data[0]
         val_data = glob(os.path.join("val","*.jpg"))
         
@@ -230,9 +230,9 @@ class Color():
         ims("results/base_colors.jpg",merge_color(base_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
 
-        ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-        ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-        ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("1000Results/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("1000Results/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+        ims("1000Results/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
         datalen = len(data)
 
@@ -288,12 +288,12 @@ class Color():
 
                 if t % 200 == 0:
                     recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
-                    ims("fourthResults/"+str(e) + 'turn' + str(i)+ ".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                    ims("1000Results/"+str(t) + "turn.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
                 #start validate
 
                 print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
-                print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
+                print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(t+1)))))
 
     def test(self):
         self.loadmodel()
@@ -308,13 +308,13 @@ class Color():
             #val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
             val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
 
-            ims("fourthResults/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("fourthResults/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("fourthResults/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("1000Results/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("1000Results/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("1000Results/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
 
             recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
-            ims("fourthResults/NoHint.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("1000Results/NoHint.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
         #start validate
 
