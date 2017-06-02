@@ -75,7 +75,8 @@ class Color():
                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
-        d_loss_sum = tf.summary.scalar("c_loss", self.d_loss)
+        d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
+        img_sum = tf.summary.image("img", self.generated_images, max_outputs=10)
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
@@ -186,8 +187,8 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        #data = glob(os.path.join("img", "*.jpg"))
-        data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
+        data = glob(os.path.join("img", "*.jpg"))
+        # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
         print data[0]
         val_data = glob(os.path.join("val","*.jpg"))
         
