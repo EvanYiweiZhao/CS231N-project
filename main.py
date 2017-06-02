@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow.contrib.layers as ly
 import numpy as np
 import os
 from glob import glob
@@ -6,6 +7,7 @@ import sys
 import math
 from random import randint
 import random
+from functools import partial
 
 from utils import *
 from Unet_util import *
@@ -16,6 +18,9 @@ import datetime
 clamp_lower = -0.01
 clamp_upper = 0.01
 lam = 10
+learning_rate_ger = 5e-5
+learning_rate_dis = 5e-5
+is_adam = True
 
 class Color():
     def __init__(self, imgsize=256, batchsize=4, mode='gp'):
@@ -50,20 +55,17 @@ class Color():
         self.real_AB = tf.concat([combined_preimage, self.real_images], 3)
         self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)
 
-        self.disc_true, disc_true_logits = self.discriminator(self.real_AB, reuse=False)
-        self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
+        disc_true_logits = self.discriminator(self.real_AB, reuse=False)
+        disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
 
         self.d_loss = tf.reduce_mean(disc_fake_logits - disc_true_logits) # WGAN
-        # self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
-        # self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
-        # self.d_loss = self.d_loss_real + self.d_loss_fake
 
         if mode is 'gp':
             alpha_dist = tf.contrib.distributions.Uniform(0.0, 1.0)
             alpha = alpha_dist.sample((self.batch_size, 1, 1, 1))
             interpolated = self.real_images + alpha*(self.generated_images-self.real_images)
             interpolated_AB = tf.concat([combined_preimage, interpolated], 3)
-            _, inte_logit = self.discriminator(interpolated_AB, reuse=True)
+            inte_logit = self.discriminator(interpolated_AB, reuse=True)
             gradients = tf.gradients(inte_logit, [interpolated_AB,])[0]
             grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
             gradient_penalty = tf.reduce_mean((grad_l2-1)**2)
@@ -71,17 +73,27 @@ class Color():
             grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
             self.d_loss += lam*gradient_penalty
 
-        self.g_loss = tf.reduce_mean(-disc_fake_logits) \
-                       + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+        self.g_loss = tf.reduce_mean(-disc_fake_logits)
+                      # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
-        d_loss_sum = tf.summary.scalar("c_loss", self.d_loss)
-
+        d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
+        img_sum = tf.summary.image("img", self.generated_images, max_outputs=10)
+    
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
 
-        self.d_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
-        self.g_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
+        counter_g = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+        self.g_optim = ly.optimize_loss(loss=self.g_loss, learning_rate=learning_rate_ger,
+                                optimizer=partial(tf.train.AdamOptimizer, beta1=0.5, beta2=0.9) if is_adam is True else tf.train.RMSPropOptimizer, 
+                                variables=self.g_vars, global_step=counter_g,
+                                summaries = ['gradient_norm'])
+        counter_c = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+        self.d_optim = ly.optimize_loss(loss=self.d_loss, learning_rate=learning_rate_dis,
+                        optimizer=partial(tf.train.AdamOptimizer, beta1=0.5, beta2=0.9) if is_adam is True else tf.train.RMSPropOptimizer, 
+                        variables=self.d_vars, global_step=counter_c,
+                        summaries = ['gradient_norm'])
+
 
         if mode is 'regular':
             clipped_var_d = [tf.assign(var, tf.clip_by_value(var, clamp_lower, clamp_upper)) for var in self.d_vars]
@@ -92,22 +104,28 @@ class Color():
         if not mode in ['gp', 'regular']:
             raise(NotImplementedError('Only two modes'))
 
-
-    def discriminator(self, image, y=None, reuse=False):
-        # image is 256 x 256 x (input_c_dim + output_c_dim)
-        with tf.variable_scope("discriminator"):
+    def discriminator(self, img, reuse=False):
+        with tf.variable_scope('discriminator') as scope:
             if reuse:
-                tf.get_variable_scope().reuse_variables()
+                scope.reuse_variables()
             else:
                 assert tf.get_variable_scope().reuse == False
+            img = ly.conv2d(img, num_outputs=self.df_dim, kernel_size=5,
+                            stride=2, activation_fn=lrelu)
+            img = ly.conv2d(img, num_outputs=self.df_dim * 2, kernel_size=5,
+                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
+                            normalizer_params={'is_training':True})
+            img = ly.conv2d(img, num_outputs=self.df_dim * 4, kernel_size=5,
+                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm, 
+                            normalizer_params={'is_training':True})
 
-            h0 = lrelu(conv2d2(image, self.df_dim, name='d_h0_conv')) # h0 is (128 x 128 x self.df_dim)
-            h1 = lrelu(self.d_bn1(conv2d2(h0, self.df_dim*2, name='d_h1_conv'))) # h1 is (64 x 64 x self.df_dim*2)
-            h2 = lrelu(self.d_bn2(conv2d2(h1, self.df_dim*4, name='d_h2_conv'))) # h2 is (32 x 32 x self.df_dim*4)
-            h3 = lrelu(self.d_bn3(conv2d2(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv'))) # h3 is (16 x 16 x self.df_dim*8)
-            h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+            img = ly.conv2d(img, num_outputs=self.df_dim * 8, kernel_size=5,
+                            stride=2, activation_fn=lrelu, normalizer_fn=ly.batch_norm,
+                            normalizer_params={'is_training':True})
+            logit = ly.fully_connected(tf.reshape(
+                img, [self.batch_size, -1]), 1, activation_fn=None)
+        return logit
 
-        return tf.nn.sigmoid(h4), h4
 
     def generator(self, img_in):
         X = img_in
@@ -245,22 +263,22 @@ class Color():
                     if t % 100 == 99 and j == 0:
                         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                         run_metadata = tf.RunMetadata()
-                        d_loss, _, merged = sess.run([self.d_loss, self.d_optim, self.merged_all], feed_dict=feed_dict,
+                        d_loss, _, merged = self.sess.run([self.d_loss, self.d_optim, self.merged_all], feed_dict=feed_dict,
                                              options=run_options, run_metadata=run_metadata)
                         summary_writer.add_summary(merged, t)
                         summary_writer.add_run_metadata(run_metadata, 'critic_metadata {}'.format(t), t)
                     else:
-                        d_loss, _ = sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
+                        d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
 
                 feed_dict = next_feed_dict()
                 if t % 100 == 99:
-                    g_loss, _, merged = sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
+                    g_loss, _, merged = self.sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
                          options=run_options, run_metadata=run_metadata)
                     summary_writer.add_summary(merged, t)
                     summary_writer.add_run_metadata(
                         run_metadata, 'generator_metadata {}'.format(t), t)
                 else:
-                    g_loss, _ = sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
+                    g_loss, _ = self.sess.run([self.g_loss, self.g_optim], feed_dict=feed_dict)
 
                 print "%d: [%d] d_loss %f, g_loss %f" % (t, (datalen/self.batch_size), d_loss, g_loss)
 
