@@ -46,7 +46,7 @@ class Color():
         self.output_colors = 3
 
         self.l1_scaling = 100
-        self.vgg_scaling = 100
+        self.vgg_scaling = 0.01
 
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
