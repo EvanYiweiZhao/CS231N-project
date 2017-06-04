@@ -345,7 +345,10 @@ class Color():
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
         self.sess.run(tf.global_variables_initializer())
-        vgg_init_fn = slim.assign_from_checkpoint_fn(os.path.join(vgg_checkpoints_dir, 'vgg_19.ckpt'), slim.get_model_variables())
+        vgg_model_path = os.path.join(vgg_checkpoints_dir, 'vgg_19.ckpt')
+        vgg_variables = [v for v in tf.trainable_variables() if 'vgg_19' in v.name ]
+        vgg_init_fn = slim.assign_from_checkpoint_fn(vgg_model_path, vgg_variables)
+
         vgg_init_fn(self.sess)
 
         if load_discrim:
