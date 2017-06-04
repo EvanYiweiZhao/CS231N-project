@@ -79,28 +79,19 @@ class Color():
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
         img_sum = tf.summary.image("img", self.generated_images, max_outputs=10)
-    
+
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
 
-        counter_g = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
-        self.g_optim = ly.optimize_loss(loss=self.g_loss, learning_rate=learning_rate_ger,
-                                optimizer=partial(tf.train.AdamOptimizer, beta1=0.5, beta2=0.9) if is_adam is True else tf.train.RMSPropOptimizer, 
-                                variables=self.g_vars, global_step=counter_g,
-                                summaries = ['gradient_norm'])
-        counter_c = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
-        self.d_optim = ly.optimize_loss(loss=self.d_loss, learning_rate=learning_rate_dis,
-                        optimizer=partial(tf.train.AdamOptimizer, beta1=0.5, beta2=0.9) if is_adam is True else tf.train.RMSPropOptimizer, 
-                        variables=self.d_vars, global_step=counter_c,
-                        summaries = ['gradient_norm'])
-
+        self.d_optim = tf.train.AdamOptimizer(0.00001, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
+        self.g_optim = tf.train.AdamOptimizer(0.00001, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
 
         if mode is 'regular':
             clipped_var_d = [tf.assign(var, tf.clip_by_value(var, clamp_lower, clamp_upper)) for var in self.d_vars]
             # merge the clip operations on critic variables
             with tf.control_dependencies([self.d_optim]):
                 self.d_optim = tf.tuple(clipped_var_d)
- 
+
         if not mode in ['gp', 'regular']:
             raise(NotImplementedError('Only two modes'))
 
