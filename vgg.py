@@ -199,7 +199,8 @@ def vgg_19(inputs,
            dropout_keep_prob=0.5,
            spatial_squeeze=True,
            scope='vgg_19',
-           fc_conv_padding='VALID'):
+           fc_conv_padding='VALID',
+           reuse=False):
   """Oxford Net VGG 19-Layers version E Example.
 
   Note: All the fully_connected layers have been transformed to conv2d layers.
@@ -224,6 +225,8 @@ def vgg_19(inputs,
     the last op containing the log predictions and end_points dict.
   """
   with tf.variable_scope(scope, 'vgg_19', [inputs]) as sc:
+    if reuse:
+      tf.get_variable_scope().reuse_variables()
     end_points_collection = sc.name + '_end_points'
     # Collect outputs for conv2d, fully_connected and max_pool2d.
     with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d],

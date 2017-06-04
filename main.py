@@ -86,8 +86,8 @@ class Color():
         vgg_generated_images = vgg_preprocessing.preprocess_image_batch(self.generated_images, vgg_size, vgg_size, is_training=False)
 
         with slim.arg_scope(vgg.vgg_arg_scope()):
-            fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False)
-            fc7_generated, logits, _ = vgg.vgg_19(vgg_generated_images, num_classes=1000, is_training=False)
+            fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False, reuse=False)
+            fc7_generated, logits, _ = vgg.vgg_19(vgg_generated_images, num_classes=1000, is_training=False, reuse=True)
             vgg_loss = tf.reduce_mean(tf.nn.l2_loss(fc7_real - fc7_generated))
             
         self.g_loss = tf.reduce_mean(-disc_fake_logits) + self.vgg_scaling * vgg_loss
