@@ -83,8 +83,8 @@ class Color():
                 grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
                 self.d_loss += lam*gradient_penalty
         else:
-            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_true_logits, tf.ones_like(disc_true_logits)))
-            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.zeros_like(disc_fake_logits)))
+            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_true_logits, logits=tf.ones_like(disc_true_logits)))
+            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_fake_logits, logits=tf.zeros_like(disc_fake_logits)))
             self.d_loss = self.d_loss_real + self.d_loss_fake
 
         vgg_real_images = vgg_preprocessing.preprocess_image_batch(self.real_images, vgg_size, vgg_size, is_training=False)
@@ -97,11 +97,11 @@ class Color():
         
         if is_WGAN:
             self.g_loss = tf.reduce_mean(-disc_fake_logits)
-                    # + self.vgg_scaling * vgg_loss
+                    # + self.vgg_scaling * vgg_loss \
                     # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
         else:
-            self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.ones_like(disc_fake_logits)))
-                        + self.vgg_scaling * vgg_loss
+            self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_fake_logits, logits=tf.ones_like(disc_fake_logits))) \
+                        + self.vgg_scaling * vgg_loss \
                         + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
