@@ -82,8 +82,8 @@ class Color():
             grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
             self.d_loss += lam*gradient_penalty
 
-        vgg_real_images = vgg_preprocessing.preprocess_image(self.real_images, vgg_size, vgg_size, is_training=False)
-        vgg_generated_images = vgg_preprocessing.preprocess_image(self.generated_images, vgg_size, vgg_size, is_training=False)
+        vgg_real_images = vgg_preprocessing.preprocess_images(self.real_images, vgg_size, vgg_size, is_training=False)
+        vgg_generated_images = vgg_preprocessing.preprocess_images(self.generated_images, vgg_size, vgg_size, is_training=False)
 
         with slim.arg_scope(vgg.vgg_arg_scope()):
             fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False)

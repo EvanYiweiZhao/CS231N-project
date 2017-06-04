@@ -363,3 +363,17 @@ def preprocess_image(image, output_height, output_width, is_training=False,
   else:
     return preprocess_for_eval(image, output_height, output_width,
                                resize_side_min)
+
+
+def preprocess_images(images, output_height, output_width, is_training=False,
+                     resize_side_min=_RESIZE_SIDE_MIN,
+                     resize_side_max=_RESIZE_SIDE_MAX):
+  
+  if is_training:
+    return [preprocess_for_train(image, output_height, output_width,
+                                resize_side_min, resize_side_max) for image in images]
+  else:
+    return [preprocess_for_eval(image, output_height, output_width,
+                               resize_side_min) for image in images]
+
+

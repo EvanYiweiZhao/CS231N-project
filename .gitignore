@@ -7,3 +7,4 @@ cv*
 img/*
 checkpoint/*
 results/*
+vgg_checkpoints
