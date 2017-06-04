@@ -365,15 +365,18 @@ def preprocess_image(image, output_height, output_width, is_training=False,
                                resize_side_min)
 
 
-def preprocess_images(images, output_height, output_width, is_training=False,
+def preprocess_image_batch(image_batch, output_height, output_width, is_training=False,
                      resize_side_min=_RESIZE_SIDE_MIN,
                      resize_side_max=_RESIZE_SIDE_MAX):
-  
+  images = tf.unstack(image_batch, axis=0)
+
+
+
   if is_training:
-    return [preprocess_for_train(image, output_height, output_width,
-                                resize_side_min, resize_side_max) for image in images]
+    return tf.stack([preprocess_for_train(image, output_height, output_width,
+                                resize_side_min, resize_side_max) for image in images])
   else:
-    return [preprocess_for_eval(image, output_height, output_width,
-                               resize_side_min) for image in images]
+    return tf.stack([preprocess_for_eval(image, output_height, output_width,
+                               resize_side_min) for image in images])
 
 
