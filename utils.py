@@ -101,7 +101,7 @@ def merge(images, size):
     return img[:,:,0]
 
 def ims(name, img):
-    print "saving img " + name
+    print ("saving img " + name)
     cv2.imwrite(name, img*255)
 
 def edge_detection(img):
