@@ -22,13 +22,13 @@ vgg_checkpoints_dir = './vgg_checkpoints'
 slim = tf.contrib.slim
 vgg_size = vgg.vgg_19.default_image_size
 
-
 clamp_lower = -0.01
 clamp_upper = 0.01
 lam = 10
 learning_rate_ger = 2e-4
 learning_rate_dis = 2e-4
 is_adam = True
+is_WGAN = False
 
 class Color():
     def __init__(self, imgsize=256, batchsize=4, mode='gp'):
@@ -67,20 +67,25 @@ class Color():
         disc_true_logits = self.discriminator(self.real_AB, reuse=False)
         disc_fake_logits = self.discriminator(self.fake_AB, reuse=True)
 
-        self.d_loss = tf.reduce_mean(disc_fake_logits - disc_true_logits) # WGAN
+        if is_WGAN:
+            self.d_loss = tf.reduce_mean(disc_fake_logits - disc_true_logits) # WGAN
 
-        if mode is 'gp':
-            alpha_dist = tf.contrib.distributions.Uniform(0.0, 1.0)
-            alpha = alpha_dist.sample((self.batch_size, 1, 1, 1))
-            interpolated = self.real_images + alpha*(self.generated_images-self.real_images)
-            interpolated_AB = tf.concat([combined_preimage, interpolated], 3)
-            inte_logit = self.discriminator(interpolated_AB, reuse=True)
-            gradients = tf.gradients(inte_logit, [interpolated_AB,])[0]
-            grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
-            gradient_penalty = tf.reduce_mean((grad_l2-1)**2)
-            gp_loss_sum = tf.summary.scalar("gp_loss", gradient_penalty)
-            grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
-            self.d_loss += lam*gradient_penalty
+            if mode is 'gp':
+                alpha_dist = tf.contrib.distributions.Uniform(0.0, 1.0)
+                alpha = alpha_dist.sample((self.batch_size, 1, 1, 1))
+                interpolated = self.real_images + alpha*(self.generated_images-self.real_images)
+                interpolated_AB = tf.concat([combined_preimage, interpolated], 3)
+                inte_logit = self.discriminator(interpolated_AB, reuse=True)
+                gradients = tf.gradients(inte_logit, [interpolated_AB,])[0]
+                grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
+                gradient_penalty = tf.reduce_mean((grad_l2-1)**2)
+                gp_loss_sum = tf.summary.scalar("gp_loss", gradient_penalty)
+                grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
+                self.d_loss += lam*gradient_penalty
+        else:
+            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_true_logits, tf.ones_like(disc_true_logits)))
+            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.zeros_like(disc_fake_logits)))
+            self.d_loss = self.d_loss_real + self.d_loss_fake
 
         vgg_real_images = vgg_preprocessing.preprocess_image_batch(self.real_images, vgg_size, vgg_size, is_training=False)
         vgg_generated_images = vgg_preprocessing.preprocess_image_batch(self.generated_images, vgg_size, vgg_size, is_training=False)
@@ -89,9 +94,15 @@ class Color():
             fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False, reuse=False)
             fc7_generated, logits, _ = vgg.vgg_19(vgg_generated_images, num_classes=1000, is_training=False, reuse=True)
             vgg_loss = tf.reduce_mean(tf.nn.l2_loss(fc7_real - fc7_generated))
-            
-        self.g_loss = tf.reduce_mean(-disc_fake_logits) + self.vgg_scaling * vgg_loss
-                      # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+        
+        if is_WGAN:
+            self.g_loss = tf.reduce_mean(-disc_fake_logits)
+                    # + self.vgg_scaling * vgg_loss
+                    # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+        else:
+            self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(disc_fake_logits, tf.ones_like(disc_fake_logits)))
+                        + self.vgg_scaling * vgg_loss
+                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
@@ -100,17 +111,18 @@ class Color():
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
 
-        self.d_optim = tf.train.AdamOptimizer(0.00001, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
-        self.g_optim = tf.train.AdamOptimizer(0.00001, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
+        self.d_optim = tf.train.AdamOptimizer(learning_rate_ger, beta1=0.5).minimize(self.d_loss, var_list=self.d_vars)
+        self.g_optim = tf.train.AdamOptimizer(learning_rate_dis, beta1=0.5).minimize(self.g_loss, var_list=self.g_vars)
 
-        if mode is 'regular':
-            clipped_var_d = [tf.assign(var, tf.clip_by_value(var, clamp_lower, clamp_upper)) for var in self.d_vars]
-            # merge the clip operations on critic variables
-            with tf.control_dependencies([self.d_optim]):
-                self.d_optim = tf.tuple(clipped_var_d)
+        if is_WGAN:
+            if mode is 'regular':
+                clipped_var_d = [tf.assign(var, tf.clip_by_value(var, clamp_lower, clamp_upper)) for var in self.d_vars]
+                # merge the clip operations on critic variables
+                with tf.control_dependencies([self.d_optim]):
+                    self.d_optim = tf.tuple(clipped_var_d)
 
-        if not mode in ['gp', 'regular']:
-            raise(NotImplementedError('Only two modes'))
+            if not mode in ['gp', 'regular']:
+                raise(NotImplementedError('Only two modes'))
 
     # def discriminator(self, img, reuse=False):
     #     with tf.variable_scope('discriminator') as scope:
