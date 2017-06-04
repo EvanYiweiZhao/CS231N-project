@@ -15,6 +15,14 @@ from uNet import *
 import time
 import datetime
 
+import vgg
+import vgg_preprocessing
+
+vgg_checkpoints_dir = './vgg_checkpoints'
+slim = tf.contrib.slim
+vgg_size = vgg.vgg_19.default_image_size
+
+
 clamp_lower = -0.01
 clamp_upper = 0.01
 lam = 10
@@ -38,6 +46,7 @@ class Color():
         self.output_colors = 3
 
         self.l1_scaling = 100
+        self.vgg_scaling = 100
 
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
@@ -73,7 +82,15 @@ class Color():
             grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
             self.d_loss += lam*gradient_penalty
 
-        self.g_loss = tf.reduce_mean(-disc_fake_logits)
+        vgg_real_images = vgg_preprocessing.preprocess_image(self.real_images, vgg_size, vgg_size, is_training=False)
+        vgg_generated_images = vgg_preprocessing.preprocess_image(self.generated_images, vgg_size, vgg_size, is_training=False)
+
+        with slim.arg_scope(vgg.vgg_arg_scope()):
+            fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False)
+            fc7_generated, logits, _ = vgg.vgg_19(vgg_generated_images, num_classes=1000, is_training=False)
+            vgg_loss = tf.reduce_mean(tf.nn.l2_loss(fc7_real - fc7_generated))
+            
+        self.g_loss = tf.reduce_mean(-disc_fake_logits) + self.vgg_scaling * vgg_loss
                       # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
@@ -328,6 +345,8 @@ class Color():
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
         self.sess.run(tf.global_variables_initializer())
+        vgg_init_fn = slim.assign_from_checkpoint_fn(os.path.join(vgg_checkpoints_dir, 'vgg_19.ckpt'), slim.get_model_variables())
+        vgg_init_fn(self.sess)
 
         if load_discrim:
             self.saver = tf.train.Saver()
