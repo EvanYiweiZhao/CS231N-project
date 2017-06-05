@@ -83,8 +83,8 @@ class Color():
                 grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
                 self.d_loss += lam*gradient_penalty
         else:
-            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_true_logits, logits=tf.ones_like(disc_true_logits)))
-            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_fake_logits, logits=tf.zeros_like(disc_fake_logits)))
+            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
+            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
             self.d_loss = self.d_loss_real + self.d_loss_fake
 
         vgg_real_images = vgg_preprocessing.preprocess_image_batch(self.real_images, vgg_size, vgg_size, is_training=False)
@@ -100,7 +100,7 @@ class Color():
                     # + self.vgg_scaling * vgg_loss \
                     # + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
         else:
-            self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=disc_fake_logits, logits=tf.ones_like(disc_fake_logits))) \
+            self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
                         + self.vgg_scaling * vgg_loss \
                         + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
 
@@ -287,9 +287,12 @@ class Color():
             log_dir = './log/'
             summary_writer = tf.summary.FileWriter(log_dir, self.sess.graph)
             for t in xrange(20000):
-                d_iters = 5
-                if t % 500 == 0 or t < 25:
-                    d_iters = 100
+                if is_WGAN:
+                    d_iters = 5
+                    if t % 500 == 0 or t < 25:
+                        d_iters = 100
+                else:
+                    d_iters = 1
                 for j in range(d_iters):
                     feed_dict = next_feed_dict()
                     if t % 100 == 99 and j == 0:
@@ -301,8 +304,8 @@ class Color():
                         summary_writer.add_run_metadata(run_metadata, 'critic_metadata {}'.format(t), t)
                     else:
                         d_loss, _ = self.sess.run([self.d_loss, self.d_optim], feed_dict=feed_dict)   
-
-                feed_dict = next_feed_dict()
+                if is_WGAN:
+                    feed_dict = next_feed_dict()
                 if t % 100 == 99:
                     g_loss, _, merged = self.sess.run([self.g_loss, self.g_optim, self.merged_all], feed_dict=feed_dict,
                          options=run_options, run_metadata=run_metadata)
