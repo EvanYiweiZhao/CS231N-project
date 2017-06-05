@@ -35,8 +35,8 @@ def conv2d2(input_, output_dim,
         conv = tf.reshape(tf.nn.bias_add(conv, biases), conv.get_shape())
 
         return conv
-"""
-def deconv2d(input_, output_shape,
+
+def deconv2d2(input_, output_shape,
              k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02,
              name="deconv2d", with_w=False):
     with tf.variable_scope(name):
@@ -49,7 +49,6 @@ def deconv2d(input_, output_shape,
             return deconv, w, biases
         else:
             return deconv
-"""
 
 def lrelu(x, leak=0.2, name="lrelu"):
   return tf.maximum(x, leak*x)
