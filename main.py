@@ -223,18 +223,25 @@ class Color():
 
         return tf.nn.tanh(self.d8)
 
-
-
-
-    def imageblur(self, cimg, sampling=False):
+    def imageblur(self, cimg, sampling=False, mode='new'):
         if sampling:
             cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
-        else:
+            return cv2.blur(cimg,(100,100))
+        if mode == 'blur':
             for i in xrange(30):
                 randx = randint(0,205)
                 randy = randint(0,205)
                 cimg[randx:randx+50, randy:randy+50] = 255
-        return cv2.blur(cimg,(100,100))
+            return cv2.blur(cimg,(100,100))
+        else:
+            w, h, _ = cimg.shape
+            hint = 255*np.ones_like(cimg)
+            r = 12
+            for i in xrange(30):
+                randx = randint(0,w-r)
+                randy = randint(0,h-r)
+                hint[randx:randx+r, randy:randy+r] = cimg[randx:randx+r, randy:randy+r]
+            return hint
 
     def train(self):
         self.loadmodel()
@@ -342,8 +349,8 @@ class Color():
             val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
             val_edge = np.expand_dims(val_edge, 3)
 
-            #val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
-            val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
+            val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
+            # val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
 
             ims("1000Results/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("1000Results/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
@@ -427,7 +434,6 @@ class Color():
             return True
         else:
             return False
-
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
