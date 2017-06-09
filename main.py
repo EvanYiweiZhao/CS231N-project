@@ -234,7 +234,7 @@ class Color():
                 randy = randint(0,205)
                 cimg[randx:randx+50, randy:randy+50] = 255
             return cv2.blur(cimg,(100,100))
-        else if mode == 'sample':
+        elif mode == 'sample':
             w, h, _ = cimg.shape
             hint = 255*np.ones_like(cimg)
             r = 12
@@ -243,7 +243,7 @@ class Color():
                 randy = randint(0,h-r)
                 hint[randx:randx+r, randy:randy+r] = cimg[randx:randx+r, randy:randy+r]
             return hint
-        else if mode == 'merge':
+        elif mode == 'merge':
             w, h, _ = cimg.shape
             blur = cv2.blur(cimg, (5, 5))
             for i in xrange(30):
@@ -276,7 +276,7 @@ class Color():
                     r += 1
                 hint[x:x+r, y:y+r] = blur[x:x+r, y:y+r]
             return hint
-        else if mode == 'block':
+        elif mode == 'block':
             w, h, _ = cimg.shape
             cimg = cv2.blur(cimg, (5, 5))
             sample_num = 30
