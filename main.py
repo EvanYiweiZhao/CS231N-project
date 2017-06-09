@@ -103,7 +103,7 @@ class Color():
             self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
                         + self.vgg_scaling * vgg_loss \
                         + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images)) \
-                        + self.tv_scaling * tf.reduce_sum(tf.image.total_variation(generated_images))
+                        + self.tv_scaling * tf.reduce_sum(tf.image.total_variation(self.generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
