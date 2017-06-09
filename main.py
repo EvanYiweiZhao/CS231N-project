@@ -47,6 +47,7 @@ class Color():
 
         self.l1_scaling = 100
         self.vgg_scaling = 0.01
+        self.tv_scaling = 0.0001
 
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
@@ -94,7 +95,6 @@ class Color():
             fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False, reuse=False)
             fc7_generated, logits, _ = vgg.vgg_19(vgg_generated_images, num_classes=1000, is_training=False, reuse=True)
             vgg_loss = tf.reduce_mean(tf.nn.l2_loss(fc7_real - fc7_generated))
-        
         if is_WGAN:
             self.g_loss = tf.reduce_mean(-disc_fake_logits)
                     # + self.vgg_scaling * vgg_loss \
@@ -102,7 +102,8 @@ class Color():
         else:
             self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
                         + self.vgg_scaling * vgg_loss \
-                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images))
+                        + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images)) \
+                        + self.tv_scaling * tf.reduce_sum(tf.image.total_variation(generated_images))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
