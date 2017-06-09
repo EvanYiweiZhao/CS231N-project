@@ -121,6 +121,10 @@ class Color():
         img_write = tf.cast(tf.abs(img_rgb)*255, tf.uint8)
         img_sum = tf.summary.image("color", img_write, max_outputs=4)
 
+        img_rgb = self.real_images[...,::-1]
+        img_write = tf.cast(tf.abs(img_rgb)*255, tf.uint8)
+        img_sum = tf.summary.image("real", img_write, max_outputs=4)
+
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
 
