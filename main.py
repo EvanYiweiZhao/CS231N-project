@@ -285,7 +285,7 @@ class Color():
                 # grow along the diagonal
                 prev_mean = blur[x, y]
                 r = 1
-                while True:
+                while r < 30:
                     mean = np.mean(blur[x:x+r, y:y+r], axis = (0,1))
                     minus = np.abs(mean - prev_mean)
                     if minus[0] > threshold or minus[1] > threshold or minus[2] > threshold:
@@ -308,7 +308,7 @@ class Color():
                 # grow along the diagonal
                 prev_mean = cimg[x, y]
                 r = 1
-                while True:
+                while r < 30:
                     
                     mean = np.mean(cimg[x:x+r, y:y+r], axis = (0,1))
                     minus = np.abs(mean - prev_mean)
