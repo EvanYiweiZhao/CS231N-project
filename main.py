@@ -56,11 +56,12 @@ class Color():
         self.line_images = tf.placeholder(tf.float32, [self.batch_size, self.image_size, self.image_size, self.input_colors])
         self.color_images = tf.placeholder(tf.float32, [self.batch_size, self.image_size, self.image_size, self.input_colors2])
         self.real_images = tf.placeholder(tf.float32, [self.batch_size, self.image_size, self.image_size, self.output_colors])
+        self.rd_z = tf.placeholder(tf.float32, [self.batch_size, 200])
 
         combined_preimage = tf.concat([self.line_images, self.color_images], 3)
         # combined_preimage = self.line_images
         with tf.variable_scope('generator'):
-            self.generated_images = self.generator(combined_preimage)
+            self.generated_images = self.generator(combined_preimage, self.rd_z)
 
         self.real_AB = tf.concat([combined_preimage, self.real_images], 3)
         self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)
@@ -88,8 +89,8 @@ class Color():
             self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
             self.d_loss = self.d_loss_real + self.d_loss_fake
 
-        vgg_real_images = vgg_preprocessing.preprocess_image_batch(self.real_images, vgg_size, vgg_size, is_training=False)
-        vgg_generated_images = vgg_preprocessing.preprocess_image_batch(self.generated_images, vgg_size, vgg_size, is_training=False)
+        vgg_real_images = vgg_preprocessing.preprocess_image_batch(self.real_images*255, vgg_size, vgg_size, is_training=False)
+        vgg_generated_images = vgg_preprocessing.preprocess_image_batch(self.generated_images*255, vgg_size, vgg_size, is_training=False)
 
         with slim.arg_scope(vgg.vgg_arg_scope()):
             fc7_real, logits, _ = vgg.vgg_19(vgg_real_images, num_classes=1000, is_training=False, reuse=False)
@@ -103,11 +104,11 @@ class Color():
             self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.ones_like(disc_fake_logits))) \
                         + self.vgg_scaling * vgg_loss \
                         + self.l1_scaling * tf.reduce_mean(tf.abs(self.real_images - self.generated_images)) \
-                        + self.tv_scaling * tf.reduce_sum(tf.image.total_variation(self.generated_images))
+                        + self.tv_scaling * tf.reduce_sum(tf.image.total_variation(self.generated_images*255))
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
-        img_sum = tf.summary.image("img", self.generated_images, max_outputs=10)
+        img_sum = tf.summary.image("img", self.generated_images*255, max_outputs=10)
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
@@ -160,7 +161,7 @@ class Color():
             h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
         return h4
 
-    def generator(self, img_in):
+    def generator(self, img_in, z):
         '''
         X = img_in
 
@@ -191,6 +192,10 @@ class Color():
         '''
         s = self.output_size
         s2, s4, s8, s16, s32, s64, s128 = int(s/2), int(s/4), int(s/8), int(s/16), int(s/32), int(s/64), int(s/128)
+        r2 = tf.layers.dense(z, 256*256) 
+        r3 = tf.reshape(r2, [self.batch_size, 256, 256, 1])
+        img_in_r = tf.concat([img_in, r3], axis=3) 
+
         # image is (256 x 256 x input_c_dim)
         e1 = conv2d2(img_in, self.gf_dim, name='g_e1_conv') # e1 is (128 x 128 x self.gf_dim)
         e2 = bn(conv2d2(lrelu(e1), self.gf_dim*2, name='g_e2_conv')) # e2 is (64 x 64 x self.gf_dim*2)
@@ -304,7 +309,7 @@ class Color():
 
     def train(self):
         self.loadmodel()
-        data = glob(os.path.join("img", "*.jpg"))
+        data = glob(os.path.join("img/realdata", "*.jpg"))
         # data = glob(os.path.join("/commuter/chatbot/ersanyi/deepcolor/imgs1000", "*.jpg"))
         print(data[0])
         val_data = glob(os.path.join("val","*.jpg"))
@@ -346,15 +351,15 @@ class Color():
             batch_edge = np.expand_dims(batch_edge, 3)
 
             batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
-            
-            feed_dict = {self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors}
+            r1 = np.random.uniform(-1,1,(4,200))
+            feed_dict = {self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors, self.rd_z : r1}
             return feed_dict
 
 
         with tf.device("/gpu:0"):
             log_dir = './log/'
             summary_writer = tf.summary.FileWriter(log_dir, self.sess.graph)
-            for t in xrange(20000):
+            for t in xrange(600000):
                 if is_WGAN:
                     d_iters = 5
                     if t % 500 == 0 or t < 25:
@@ -390,7 +395,8 @@ class Color():
                     self.save("./checkpoint", t)
 
                 if t % 200 == 0:
-                    recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
+                    r1 = np.random.uniform(-1,1,(4,200))
+                    recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors, self.rd_z : r1})
                     ims("1000Results/"+str(t) + "turn.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
                 #start validate
@@ -415,8 +421,8 @@ class Color():
             ims("1000Results/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("1000Results/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
-
-            recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors})
+            r1 = np.random.uniform(-1,1,(4,200))
+            recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors, self.rd_z : r1})
             ims("1000Results/NoHint.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
 
         #start validate
