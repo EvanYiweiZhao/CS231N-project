@@ -108,7 +108,18 @@ class Color():
 
         g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
-        img_sum = tf.summary.image("img", self.generated_images*255, max_outputs=10)
+        img_rgb = self.generated_images[...,::-1]
+        img_write = tf.cast(tf.abs(img_rgb)*255, tf.uint8)
+        img_sum = tf.summary.image("img", img_write, max_outputs=4)
+        
+        img_rgb = self.line_images[...,::-1]
+        img_write = tf.cast(tf.abs(img_rgb)*255, tf.uint8)
+        img_sum = tf.summary.image("line", img_write, max_outputs=4)
+
+        
+        img_rgb = self.color_images[...,::-1]
+        img_write = tf.cast(tf.abs(img_rgb)*255, tf.uint8)
+        img_sum = tf.summary.image("color", img_write, max_outputs=4)
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
@@ -229,7 +240,7 @@ class Color():
 
         return tf.nn.tanh(self.d8)
 
-    def imageblur(self, cimg, sampling=False, mode='merge'):
+    def imageblur(self, cimg, sampling=False, mode='block'):
         if sampling:
             cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
             return cv2.blur(cimg,(100,100))
