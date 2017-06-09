@@ -314,7 +314,6 @@ class Color():
                     if x+r >= w or y+r >= h:
                         break
                     r += 1
-                print r
                 hint[x:x+r, y:y+r] = cimg[x:x+r, y:y+r]
             return hint
 
