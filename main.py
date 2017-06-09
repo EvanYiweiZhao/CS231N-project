@@ -223,7 +223,7 @@ class Color():
 
         return tf.nn.tanh(self.d8)
 
-    def imageblur(self, cimg, sampling=False, mode='new'):
+    def imageblur(self, cimg, sampling=False, mode='merge'):
         if sampling:
             cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
             return cv2.blur(cimg,(100,100))
@@ -233,7 +233,7 @@ class Color():
                 randy = randint(0,205)
                 cimg[randx:randx+50, randy:randy+50] = 255
             return cv2.blur(cimg,(100,100))
-        else:
+        else if mode == 'sample':
             w, h, _ = cimg.shape
             hint = 255*np.ones_like(cimg)
             r = 12
@@ -241,6 +241,64 @@ class Color():
                 randx = randint(0,w-r)
                 randy = randint(0,h-r)
                 hint[randx:randx+r, randy:randy+r] = cimg[randx:randx+r, randy:randy+r]
+            return hint
+        else if mode == 'merge':
+            w, h, _ = cimg.shape
+            blur = cv2.blur(cimg, (5, 5))
+            for i in xrange(30):
+                randx = randint(0,205)
+                randy = randint(0,205)
+                cimg[randx:randx+50, randy:randy+50] = 255
+            hint =  cv2.blur(cimg,(100,100)) # background
+
+            sample_num = 20
+            threshold = 1
+            for i in range(sample_num):
+                x = randint(0,w-5)
+                y = randint(0,h-5)
+                """
+                r = 12
+                hint[x:x+r, y:y+r] = cimg[x:x+r, y:y+r]
+                
+                """
+                # grow along the diagonal
+                prev_mean = blur[x, y]
+                r = 1
+                while True:
+                    mean = np.mean(blur[x:x+r, y:y+r], axis = (0,1))
+                    minus = np.abs(mean - prev_mean)
+                    if minus[0] > threshold or minus[1] > threshold or minus[2] > threshold:
+                        break
+                    prev_mean = mean
+                    if x+r >= w or y+r >= h:
+                        break
+                    r += 1
+                hint[x:x+r, y:y+r] = blur[x:x+r, y:y+r]
+            return hint
+        else if mode == 'block':
+            w, h, _ = cimg.shape
+            cimg = cv2.blur(cimg, (5, 5))
+            sample_num = 30
+            threshold = 1
+            hint = 255*np.ones_like(cimg)
+            for i in range(sample_num):
+                x = randint(0,w-5)
+                y = randint(0,h-5)
+                # grow along the diagonal
+                prev_mean = cimg[x, y]
+                r = 1
+                while True:
+                    
+                    mean = np.mean(cimg[x:x+r, y:y+r], axis = (0,1))
+                    minus = np.abs(mean - prev_mean)
+                    if minus[0] > threshold or minus[1] > threshold or minus[2] > threshold:
+                        break
+                    prev_mean = mean
+                    if x+r >= w or y+r >= h:
+                        break
+                    r += 1
+                print r
+                hint[x:x+r, y:y+r] = cimg[x:x+r, y:y+r]
             return hint
 
     def train(self):
