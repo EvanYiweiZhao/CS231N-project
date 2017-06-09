@@ -435,9 +435,9 @@ class Color():
         vgg_init_fn(self.sess)
 
         if load_discrim:
-            self.saver = tf.train.Saver()
+            self.saver = tf.train.Saver(max_to_keep=2)
         else:
-            self.saver = tf.train.Saver(self.g_vars)
+            self.saver = tf.train.Saver(self.g_vars, max_to_keep=2)
         self.merged_all = tf.summary.merge_all()
 
         if self.load("./checkpoint"):
