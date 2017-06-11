@@ -6,3 +6,6 @@ cv*
 img/*
 checkpoint/*
 results/*
+vgg_checkpoints/*
+val/*
+1000Results/*
