@@ -244,9 +244,9 @@ class Color():
 
         return tf.nn.tanh(self.d8)
 
-    def imageblur(self, cimg, sampling=False, mode='block'):
+    def imageblur(self, cimg, sampling=False, mode='merge'):
         if sampling:
-            cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
+            # cimg = cimg * 0.3 + np.ones_like(cimg) * 0.7 * 255
             return cv2.blur(cimg,(100,100))
         if mode == 'blur':
             for i in xrange(30):
@@ -421,29 +421,57 @@ class Color():
     def test(self):
         self.loadmodel()
         with tf.device("/gpu:0"):
-            val_data = glob(os.path.join("val","*.jpg"))
-            val = np.array([get_image(sample_file) for sample_file in val_data[0:self.batch_size]])
-            val_normalized = val/255.0
+            val_data = glob(os.path.join("val","*"))
+            batch = int(len(val_data) / self.batch_size)
+            for i in range(batch):
+                val = np.array([get_image(sample_file) for sample_file in val_data[i*self.batch_size:(i+1)*self.batch_size]])
+                val_normalized = val/255.0
 
-            val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
-            val_edge = np.expand_dims(val_edge, 3)
+                val_edge = np.array([edge_detection(ba) for ba in val]) / 255.0
+                val_edge = np.expand_dims(val_edge, 3)
 
-            val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
-            # val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
+                val_colors = np.array([self.imageblur(ba) for ba in val]) / 255.0
+                # val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
+                name = "1000Results/val" + str(i)
+                ims(name + ".jpg",merge_color(val_normalized, [1, self.batch_size]))
+                ims(name + "_line.jpg",merge(val_edge, [1, self.batch_size]))
+                ims(name + "_colors.jpg",merge_color(val_colors, [1, self.batch_size]))
 
-            ims("1000Results/val.jpg",merge_color(val_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("1000Results/val_line.jpg",merge(val_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
-            ims("1000Results/val_colors.jpg",merge_color(val_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
-
-            r1 = np.random.uniform(-1,1,(4,200))
-            recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors, self.rd_z : r1})
-            ims("1000Results/NoHint.jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+                r1 = np.random.uniform(-1,1,(4,200))
+                recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors, self.rd_z : r1})
+                ims(name + "_res.jpg",merge_color(recreation, [1, self.batch_size]))
 
         #start validate
 
         #print('total time '+ str(datetime.timedelta(seconds=(time.time()-self.time))))
         #print('average time '+ str(datetime.timedelta(seconds=((time.time()-self.time)/(e+1)))))
 
+    def paint(self):
+        self.loadmodel()
+        with tf.device("/gpu:0"):
+            line_data = glob(os.path.join("val/line","*"))
+            batch = int(len(line_data) / self.batch_size)
+            for i in range(batch):
+                val = np.array([get_image(sample_file) for sample_file in line_data[i*self.batch_size:(i+1)*self.batch_size]])
+                val_color = np.array([get_image(sample_file.replace('line', 'color')) for sample_file in line_data[i*self.batch_size:(i+1)*self.batch_size]])
+                
+                val_normalized = val/255.0
+
+                val_edge = np.array([cv2.cvtColor(ba, cv2.COLOR_BGR2GRAY) for ba in val]) / 255.0
+                val_edge = np.expand_dims(val_edge, 3)
+
+                val_colors = np.array([self.imageblur(ba, sampling=True) for ba in val_color]) / 255.0
+                # val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
+                name = "1000Results/paint" + str(i)
+                ims(name + ".jpg",merge_color(val_normalized, [1, self.batch_size]))
+                ims(name + "_line.jpg",merge(val_edge, [1, self.batch_size]))
+                ims(name + "_colors.jpg",merge_color(val_colors, [1, self.batch_size]))
+
+                r1 = np.random.uniform(-1,1,(4,200))
+                recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: val_normalized, self.line_images: val_edge, self.color_images: val_colors, self.rd_z : r1})
+                ims(name + "_res.jpg",merge_color(recreation, [1, self.batch_size]))
+
+   
 
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
@@ -528,5 +556,8 @@ if __name__ == '__main__':
         elif cmd == "test":
             c = Color()
             c.test()
+        elif cmd == "paint":
+            c = Color()
+            c.paint()
         else:
             print ("Usage: python main.py [train, sample]")
