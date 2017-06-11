@@ -84,6 +84,6 @@ val_edge = np.expand_dims(val_edge, 3)
 val_colors = np.array([imageblur(ba) for ba in val]) / 255.0
 # val_colors = np.array([cv2.threshold(ba,255,255,cv2.THRESH_BINARY) for ba in val]) / 255.0
 
-ims("1000Results/val.jpg",merge_color(val_normalized, [2, 2]))
-ims("1000Results/val_line.jpg",merge(val_edge, [2, 2]))
-ims("1000Results/val_colors.jpg",merge_color(val_colors, [2, 2]))
+ims("1000Results/val.jpg",merge_color(val_normalized, [1, 4]))
+ims("1000Results/val_line.jpg",merge(val_edge, [1, 4]))
+ims("1000Results/val_colors.jpg",merge_color(val_colors, [1, 4]))
